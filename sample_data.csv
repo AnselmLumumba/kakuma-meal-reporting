@@ -1,0 +1,13 @@
+date,centre,participant_id,gender,population_group,course,enrolled,completed,employed,project,age,employment_date,employer,activity,indicator,target,achieved,notes
+2026-01-12,DBK,DBK-001,Female,Refugee,Digital Skills,1,1,1,Digital Livelihoods,22,2026-03-02,Online gig work,Training,Learners trained,100,85,Sample record
+2026-01-18,DB1,DB1-002,Male,Refugee,Electrical Installation,1,1,0,TVET,24,,,Training,Learners trained,80,72,Sample record
+2026-02-05,DB2,DB2-003,Female,Host,Business Skills,1,1,1,Livelihoods,27,2026-03-20,Small business,Business coaching,Graduates employed/self-employed,40,18,Sample record
+2026-02-22,DB3,DB3-004,Female,Refugee,ICT,1,0,0,Digital Livelihoods,19,,,Training,Learners trained,90,65,Sample record
+2026-03-10,DB4,DB4-005,Male,Host,Fashion and Design,1,1,0,TVET,21,,,Training,Learners trained,70,51,Sample record
+2026-04-14,Kalobeyei,KAL-006,Female,Refugee,Digital Skills,1,1,1,Digital Livelihoods,23,2026-05-02,Freelancing,Apprenticeship,Learners employed,50,32,Sample record
+2026-05-09,DBK,DBK-007,Male,Refugee,Agriculture,1,1,0,Livelihoods,29,,,Training,Learners trained,60,43,Sample record
+2026-06-17,DB1,DB1-008,Female,Host,Secretarial,1,1,1,TVET,20,2026-07-01,Office assistant,Placement,Graduates employed,30,17,Sample record
+2026-07-03,DB2,DB2-009,Female,Refugee,ICT,1,1,0,Digital Livelihoods,18,,,Training,Learners trained,100,88,Sample record
+2026-08-21,DB3,DB3-010,Male,Refugee,Business Skills,1,0,0,Livelihoods,26,,,Training,Learners trained,75,49,Sample record
+2026-09-06,DB4,DB4-011,Female,Host,Fashion and Design,1,1,1,TVET,25,2026-09-20,Tailoring business,Enterprise support,Graduates employed/self-employed,35,24,Sample record
+2026-09-19,Kalobeyei,KAL-012,Male,Refugee,Digital Skills,1,1,1,Digital Livelihoods,22,2026-10-01,Remote work,Job linkage,Learners employed,45,38,Sample record
