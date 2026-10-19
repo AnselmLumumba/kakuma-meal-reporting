@@ -1,3 +1,171 @@
+import io
+import os
+from datetime import date
+
+import pandas as pd
+import plotly.express as px
+import streamlit as st
+
+st.set_page_config(page_title="Kakuma MEAL Reporting System", page_icon="📊", layout="wide")
+CENTRES = ["DBK", "DB1", "DB2", "DB3", "DB4", "Kalobeyei"]
+REQUIRED_COLUMNS = ["date", "centre", "participant_id", "gender", "population_group", "course", "enrolled", "completed", "employed"]
+OPTIONAL_COLUMNS = ["project", "age", "employment_date", "employer", "activity", "indicator", "target", "achieved", "notes"]
+ALL_COLUMNS = REQUIRED_COLUMNS + OPTIONAL_COLUMNS
+
+st.title("Kakuma NGO / MEAL Reporting System")
+st.caption("Beneficiary statistics • Training and employment tracking • Monthly and quarterly reporting")
+
+with st.sidebar:
+    st.header("Data source")
+    source = st.radio("Choose how to load data", ["Google Sheets URL", "Upload Excel/CSV", "Use sample data"], index=0)
+    st.markdown("---")
+    st.markdown("**Google Sheets setup**")
+    st.caption("For a quick connection, set the sheet to ‘Anyone with the link — Viewer’ and paste its URL. For confidential data, use a private sheet with the optional service-account setup in README.md.")
+
+@st.cache_data(ttl=300, show_spinner=False)
+def read_sheet_csv(url: str) -> pd.DataFrame:
+    import re
+    # Convert common Google Sheets URLs to a CSV export URL.
+    m = re.search(r"/spreadsheets/d/([a-zA-Z0-9_-]+)", url)
+    if not m:
+        raise ValueError("That does not look like a Google Sheets URL.")
+    sheet_id = m.group(1)
+    gid_match = re.search(r"[?#&]gid=(\d+)", url)
+    gid = gid_match.group(1) if gid_match else "0"
+    csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid={gid}"
+    try:
+        return pd.read_csv(csv_url)
+    except Exception as public_error:
+        # Optional private-sheet access for deployments configured with Streamlit secrets.
+        try:
+            service_account_info = dict(st.secrets["gcp_service_account"])
+            import gspread
+            client = gspread.service_account_from_dict(service_account_info)
+            spreadsheet = client.open_by_key(sheet_id)
+            worksheet = next((ws for ws in spreadsheet.worksheets() if str(ws.id) == str(gid)), spreadsheet.sheet1)
+            values = worksheet.get_all_records()
+            if not values:
+                raise ValueError("The selected worksheet is empty or has no header row.")
+            return pd.DataFrame(values)
+        except Exception as private_error:
+            raise ValueError(
+                "Could not read this Google Sheet. For the quick setup, allow 'Anyone with the link' Viewer access. "
+                "For a private sheet, configure Streamlit secrets with a service account and share the sheet with its email. "
+                f"Public-link error: {public_error}; private access error: {private_error}"
+            ) from private_error
+
+def sample_data() -> pd.DataFrame:
+    rows = [
+        ["2026-01-12","DBK","DBK-001","Female","Refugee","Digital Skills",1,1,1,"Digital Livelihoods",22,"2026-03-02","Online gig work","Training","Learners trained",100,85,"Sample record"],
+        ["2026-01-18","DB1","DB1-002","Male","Refugee","Electrical Installation",1,1,0,"TVET",24,"","","Training","Learners trained",80,72,"Sample record"],
+        ["2026-02-05","DB2","DB2-003","Female","Host","Business Skills",1,1,1,"Livelihoods",27,"2026-03-20","Small business","Business coaching","Graduates employed/self-employed",40,18,"Sample record"],
+        ["2026-02-22","DB3","DB3-004","Female","Refugee","ICT",1,0,0,"Digital Livelihoods",19,"","","Training","Learners trained",90,65,"Sample record"],
+        ["2026-03-10","DB4","DB4-005","Male","Host","Fashion and Design",1,1,0,"TVET",21,"","","Training","Learners trained",70,51,"Sample record"],
+        ["2026-04-14","Kalobeyei","KAL-006","Female","Refugee","Digital Skills",1,1,1,"Digital Livelihoods",23,"2026-05-02","Freelancing","Apprenticeship","Learners employed",50,32,"Sample record"],
+        ["2026-05-09","DBK","DBK-007","Male","Refugee","Agriculture",1,1,0,"Livelihoods",29,"","","Training","Learners trained",60,43,"Sample record"],
+        ["2026-06-17","DB1","DB1-008","Female","Host","Secretarial",1,1,1,"TVET",20,"2026-07-01","Office assistant","Placement","Graduates employed",30,17,"Sample record"],
+        ["2026-07-03","DB2","DB2-009","Female","Refugee","ICT",1,1,0,"Digital Livelihoods",18,"","","Training","Learners trained",100,88,"Sample record"],
+        ["2026-08-21","DB3","DB3-010","Male","Refugee","Business Skills",1,0,0,"Livelihoods",26,"","","Training","Learners trained",75,49,"Sample record"],
+        ["2026-09-06","DB4","DB4-011","Female","Host","Fashion and Design",1,1,1,"TVET",25,"2026-09-20","Tailoring business","Enterprise support","Graduates employed/self-employed",35,24,"Sample record"],
+        ["2026-09-19","Kalobeyei","KAL-012","Male","Refugee","Digital Skills",1,1,1,"Digital Livelihoods",22,"2026-10-01","Remote work","Job linkage","Learners employed",45,38,"Sample record"],
+    ]
+    cols = ["date","centre","participant_id","gender","population_group","course","enrolled","completed","employed","project","age","employment_date","employer","activity","indicator","target","achieved","notes"]
+    return pd.DataFrame(rows, columns=cols)
+
+raw = None
+try:
+    if source == "Google Sheets URL":
+        sheet_url = st.sidebar.text_input("Google Sheets URL", placeholder="https://docs.google.com/spreadsheets/d/...")
+        if sheet_url.strip():
+            with st.spinner("Loading Google Sheet…"):
+                raw = read_sheet_csv(sheet_url.strip())
+            st.sidebar.success("Google Sheet loaded")
+        else:
+            st.info("Paste a Google Sheets URL in the sidebar, or choose another data source to preview the system.")
+            raw = sample_data()
+            st.warning("Showing sample data until you connect your sheet. Sample records are fictional.")
+    elif source == "Upload Excel/CSV":
+        upload = st.sidebar.file_uploader("Upload an Excel or CSV file", type=["csv", "xlsx", "xls"])
+        if upload:
+            raw = pd.read_csv(upload) if upload.name.lower().endswith(".csv") else pd.read_excel(upload)
+        else:
+            st.info("Upload an Excel or CSV file in the sidebar. You can use sample data to preview the system.")
+            raw = sample_data()
+    else:
+        raw = sample_data()
+        st.warning("You are viewing fictional sample data. Replace it with your real records before reporting.")
+except Exception as e:
+    st.error(f"Could not load the data source: {e}")
+    st.info("Check that the sheet is accessible and that the first row contains column headers. See README.md for details.")
+    raw = sample_data()
+
+if raw is not None:
+    raw.columns = [str(c).strip().lower().replace(" ", "_") for c in raw.columns]
+    aliases = {"participantid":"participant_id", "beneficiary_id":"participant_id", "centre_name":"centre", "training_centre":"centre", "sex":"gender", "community":"population_group", "training_completed":"completed", "employment_status":"employed", "enrolment":"enrolled"}
+    raw = raw.rename(columns={c: aliases[c] for c in raw.columns if c in aliases})
+    missing = [c for c in REQUIRED_COLUMNS if c not in raw.columns]
+    if missing:
+        st.error("Your data is missing required columns: " + ", ".join(missing))
+        st.markdown("Required columns: `" + "`, `".join(REQUIRED_COLUMNS) + "`. See the sample_data.csv file for the expected format.")
+        st.stop()
+    for c in OPTIONAL_COLUMNS:
+        if c not in raw.columns:
+            raw[c] = "" if c not in ["age", "target", "achieved"] else 0
+    df = raw.copy()
+    df["date"] = pd.to_datetime(df["date"], errors="coerce")
+    df = df.dropna(subset=["date"])
+    for c in ["enrolled", "completed", "employed", "age", "target", "achieved"]:
+        df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0)
+    for c in ["centre", "participant_id", "gender", "population_group", "course", "project", "employer", "activity", "indicator", "notes"]:
+        df[c] = df[c].fillna("").astype(str).str.strip()
+    df["quarter"] = df["date"].dt.to_period("Q").astype(str)
+    df["month"] = df["date"].dt.to_period("M").astype(str)
+
+    with st.sidebar:
+        st.markdown("---")
+        st.header("Filters")
+        centre_options = sorted([x for x in df["centre"].dropna().unique() if x])
+        selected_centres = st.multiselect("Centre", centre_options, default=centre_options)
+        min_date = df["date"].min().date() if not df.empty else date.today()
+        max_date = df["date"].max().date() if not df.empty else date.today()
+        date_range = st.date_input("Reporting date range", value=(min_date, max_date), min_value=min_date, max_value=max_date)
+        gender_options = sorted([x for x in df["gender"].unique() if x])
+        selected_gender = st.multiselect("Gender", gender_options, default=gender_options)
+        group_options = sorted([x for x in df["population_group"].unique() if x])
+        selected_groups = st.multiselect("Population group", group_options, default=group_options)
+    if isinstance(date_range, tuple) and len(date_range) == 2:
+        start_date, end_date = date_range
+    else:
+        start_date = end_date = date_range
+    filtered = df[(df["centre"].isin(selected_centres)) & (df["date"].dt.date >= start_date) & (df["date"].dt.date <= end_date) & (df["gender"].isin(selected_gender)) & (df["population_group"].isin(selected_groups))].copy()
+
+    # Count unique beneficiaries where IDs are available; use summed enrolment/completion fields for program totals.
+    unique_beneficiaries = filtered.loc[filtered["participant_id"].ne(""), "participant_id"].nunique()
+    total_enrolled = int(filtered["enrolled"].sum())
+    total_completed = int(filtered["completed"].sum())
+    total_employed = int(filtered["employed"].sum())
+    completion_rate = (total_completed / total_enrolled * 100) if total_enrolled else 0
+    employment_rate = (total_employed / total_completed * 100) if total_completed else 0
+
+    tab1, tab2, tab3, tab4 = st.tabs(["Dashboard", "Beneficiary statistics", "Training & employment", "Reports & exports"])
+    with tab1:
+        st.subheader("Programme overview")
+        k1,k2,k3,k4,k5 = st.columns(5)
+        k1.metric("Unique beneficiaries", f"{unique_beneficiaries:,}")
+        k2.metric("Enrolments", f"{total_enrolled:,}")
+        k3.metric("Completed training", f"{total_completed:,}")
+        k4.metric("Recorded employed", f"{total_employed:,}")
+        k5.metric("Completion rate", f"{completion_rate:.1f}%")
+        left,right = st.columns(2)
+        by_centre = filtered.groupby("centre", as_index=False).agg(Enrolments=("enrolled","sum"), Completed=("completed","sum"), Employed=("employed","sum"))
+        with left:
+            st.plotly_chart(px.bar(by_centre, x="centre", y=["Enrolments","Completed","Employed"], barmode="group", title="Training outcomes by centre"), use_container_width=True)
+        with right:
+            by_month = filtered.groupby("month", as_index=False).agg(Enrolments=("enrolled","sum"), Completed=("completed","sum"))
+            st.plotly_chart(px.line(by_month, x="month", y=["Enrolments","Completed"], markers=True, title="Monthly training trend"), use_container_width=True)
+        st.plotly_chart(px.bar(filtered.groupby("population_group", as_index=False)["participant_id"].nunique(), x="population_group", y="participant_id", title="Unique beneficiaries by population group", labels={"participant_id":"Unique beneficiaries","population_group":"Population group"}), use_container_width=True)
+    with tab2:
+        st.subheader("Beneficiary statistics")
         left,right = st.columns(2)
         with left:
             gender_stats = filtered.groupby("gender", as_index=False)["participant_id"].nunique().rename(columns={"participant_id":"Unique beneficiaries"})
