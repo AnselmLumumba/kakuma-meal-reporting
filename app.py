@@ -14,7 +14,7 @@ st.set_page_config(page_title="Kakuma MEAL Reporting System", page_icon="📊", 
 def check_password():
     """Simple shared-password gate. The password is stored in Streamlit Secrets as APP_PASSWORD."""
     def password_entered():
-        if hmac.compare_digest(st.session_state["password"], st.secrets["APP_PASSWORD"]):
+        if hmac.compare_digest(st.session_state["password"], st.secrets["Ans"]):
             st.session_state["authenticated"] = True
             del st.session_state["password"]
         else:
