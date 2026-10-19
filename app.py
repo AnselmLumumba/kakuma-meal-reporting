@@ -1,3 +1,4 @@
+import hmac
 import io
 import os
 from datetime import date
@@ -6,7 +7,32 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
+# set_page_config must be the first Streamlit command in the script.
 st.set_page_config(page_title="Kakuma MEAL Reporting System", page_icon="📊", layout="wide")
+
+
+def check_password():
+    """Simple shared-password gate. The password is stored in Streamlit Secrets as APP_PASSWORD."""
+    def password_entered():
+        if hmac.compare_digest(st.session_state["password"], st.secrets["APP_PASSWORD"]):
+            st.session_state["authenticated"] = True
+            del st.session_state["password"]
+        else:
+            st.session_state["authenticated"] = False
+
+    if st.session_state.get("authenticated"):
+        return True
+
+    st.title("Kakuma MEAL Reporting")
+    st.text_input("Password", type="password", on_change=password_entered, key="password")
+    if st.session_state.get("authenticated") is False:
+        st.error("Incorrect password")
+    return False
+
+
+if not check_password():
+    st.stop()
+
 CENTRES = ["DBK", "DB1", "DB2", "DB3", "DB4", "Kalobeyei"]
 REQUIRED_COLUMNS = ["date", "centre", "participant_id", "gender", "population_group", "course", "enrolled", "completed", "employed"]
 OPTIONAL_COLUMNS = ["project", "age", "employment_date", "employer", "activity", "indicator", "target", "achieved", "notes"]
